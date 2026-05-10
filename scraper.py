@@ -61,7 +61,7 @@ async def scrape_indeed():
 
         page = await context.new_page()
 
-        # Hide automation
+        # Hide automation detection
         await page.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', {
             get: () => undefined
@@ -81,7 +81,7 @@ async def scrape_indeed():
                 f"&start={start_val}"
             )
 
-            # ZenRows proxy
+            # Use ZenRows proxy if API key exists
             if API_KEY:
 
                 encoded_url = urllib.parse.quote(base_url)
@@ -111,13 +111,20 @@ async def scrape_indeed():
 
                 await page.wait_for_timeout(random.randint(4000, 7000))
 
-                # Save screenshot
-                await page.screenshot(
-                    path=f"debug_page_{current_page + 1}.png",
-                    full_page=True
-                )
+                # Safe screenshot
+                try:
 
-                # Detect captcha/block
+                    await page.screenshot(
+                        path=f"debug_page_{current_page + 1}.png",
+                        full_page=False,
+                        timeout=15000
+                    )
+
+                except Exception as e:
+
+                    print("Screenshot failed:", e)
+
+                # Detect blocks/captcha
                 content = await page.content()
 
                 blocked_keywords = [
@@ -140,7 +147,7 @@ async def scrape_indeed():
 
                     continue
 
-                # Wait for jobs
+                # Wait for job cards
                 try:
 
                     await page.wait_for_selector(
@@ -223,6 +230,8 @@ async def scrape_indeed():
 
         await browser.close()
 
+    # ALWAYS CREATE FILES
+
     if all_jobs:
 
         new_df = pd.DataFrame(all_jobs)
@@ -240,15 +249,44 @@ async def scrape_indeed():
 
             df = new_df
 
-        df.to_csv("indeed_jobs.csv", index=False)
-
-        generate_html(df)
+        # Keep latest 3000 jobs
+        df = df.tail(3000)
 
         print(f"\nSUCCESS: {len(all_jobs)} jobs saved")
 
     else:
 
         print("\nNo jobs found")
+
+        # Keep existing data alive
+        if os.path.exists("indeed_jobs.csv"):
+
+            print("Loading old CSV")
+
+            df = pd.read_csv("indeed_jobs.csv")
+
+        else:
+
+            print("Creating empty CSV")
+
+            df = pd.DataFrame(columns=[
+                "Date Found",
+                "Job Title",
+                "Company",
+                "Link"
+            ])
+
+    # ALWAYS SAVE FILES
+
+    df.to_csv("indeed_jobs.csv", index=False)
+
+    df.to_json(
+        "jobs.json",
+        orient="records",
+        indent=2
+    )
+
+    generate_html(df)
 
 
 def generate_html(df):
