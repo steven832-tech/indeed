@@ -1,6 +1,3 @@
-# .github/workflows/scraper.yml
-
-```yaml
 name: Indeed Job Scraper
 
 on:
