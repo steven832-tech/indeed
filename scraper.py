@@ -1,6 +1,3 @@
-# scraper.py
-
-```python
 import asyncio
 import os
 import datetime
