@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Indeed Jobs Tracker</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7f6;
+            margin: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2557a7;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+        }
+
+        .apply-link {
+            background: #2557a7;
+            color: white !important;
+            padding: 6px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .apply-link:hover {
+            background: #1c3d7a;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Indeed Remote Software Jobs Tracker</h1>
+
+    <div class="container">
+
+        <h2>No jobs found yet</h2>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <script>
+
+        $(document).ready(function() {
+
+            if ($('#jobsTable').length) {
+
+                $('#jobsTable').DataTable({
+                    pageLength: 50,
+                    order: [[0, "desc"]]
+                });
+
+            }
+
+        });
+
+    </script>
+
+</body>
+</html>
