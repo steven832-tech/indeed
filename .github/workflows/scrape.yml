@@ -1,18 +1,18 @@
-name: Deploy Job Tracker
+name: Indeed Job Scraper
 
 on:
   schedule:
-    - cron: '0 10 * * *' # 10:00 AM UTC Daily
-  workflow_dispatch:
+    - cron: '0 10 * * *' # Rozana subah 10 baje chalega
+  workflow_dispatch:      # Manual chalane ka button
 
 permissions:
-  contents: write
+  contents: write         # Files save karne ki permission
 
 jobs:
-  build-and-deploy:
+  scrape-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -27,13 +27,13 @@ jobs:
 
       - name: Run Scraper
         env:
-          PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }}
+          PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }} # GitHub Settings wala Secret
         run: python scraper.py
 
-      - name: Commit Files
+      - name: Commit and Push Results
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add indeed_jobs.csv index.html
-          git commit -m "Update job dashboard" || echo "No changes"
+          git commit -m "Updated jobs dashboard" || echo "No changes to commit"
           git push
