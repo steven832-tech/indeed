@@ -1,34 +1,39 @@
-name: Daily Indeed Scrape
+name: Deploy Job Tracker
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Runs daily at 8AM UTC
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 10 * * *' # 10:00 AM UTC Daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  scrape:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install playwright pandas
           playwright install chromium
 
-      - name: Run scraper
+      - name: Run Scraper
+        env:
+          PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }}
         run: python scraper.py
 
-      - name: Commit and push changes
+      - name: Commit Files
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add jobs.csv
-          git commit -m "Update job listings" || echo "No changes to commit"
+          git add indeed_jobs.csv index.html
+          git commit -m "Update job dashboard" || echo "No changes"
           git push
