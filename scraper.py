@@ -6,13 +6,12 @@ import pandas as pd
 from playwright.async_api import async_playwright
 
 async def scrape_indeed():
-    # --- CONFIGURATION ---
-    API_KEY = os.getenv('PROXY_API_KEY') # ZenRows key from GitHub Secrets
+    # CONFIG
+    API_KEY = os.getenv('PROXY_API_KEY')
     MAX_PAGES = 3 
     all_jobs = []
     
     async with async_playwright() as p:
-        # Runs headless in GitHub Actions
         is_github = os.getenv('GITHUB_ACTIONS') == 'true'
         browser = await p.chromium.launch(headless=is_github)
         context = await browser.new_context(
@@ -22,24 +21,20 @@ async def scrape_indeed():
 
         for current_page in range(MAX_PAGES):
             start_val = current_page * 10
-            # Target URL: Remote, Software Developer, US, Last 24 Hours
+            # Target URL: Remote Software Dev, US, Last 24h
             base_url = f"https://www.indeed.com/jobs?q=software+developer&l=United+States&sc=0kf%3Aattr%28DSQF7%29%3B&fromage=1&sort=date&start={start_val}"
             
-            # --- ZENROWS PROXY BYPASS ---
             if API_KEY:
                 encoded_url = urllib.parse.quote(base_url)
-                # js_render and premium_proxy are essential for Indeed
+                # ZenRows bypass flags
                 final_url = f"https://api.zenrows.com/v1/?api_key={API_KEY}&url={encoded_url}&js_render=true&premium_proxy=true"
             else:
                 final_url = base_url
 
-            print(f"Scraping Page {current_page + 1}...")
+            print(f"Scraping Page {current_page + 1} via ZenRows...")
             
             try:
-                # ZenRows takes time to render, so we use a high timeout
                 await page.goto(final_url, timeout=90000)
-                
-                # Wait for job cards to appear
                 await page.wait_for_selector('.job_seen_beacon', timeout=30000)
                 
                 cards = await page.query_selector_all('.job_seen_beacon')
@@ -52,23 +47,19 @@ async def scrape_indeed():
                     full_link = f"https://www.indeed.com{href}" if href.startswith('/') else href
 
                     all_jobs.append({
-                        "Date Found": datetime.date.today().strftime("%Y-%m-%d"),
+                        "Date": datetime.date.today().strftime("%Y-%m-%d"),
                         "Title": await title_el.inner_text() if title_el else "N/A",
                         "Company": await company_el.inner_text() if company_el else "N/A",
-                        "Link": f'<a href="{full_link}" target="_blank" style="color: #2557a7; font-weight: bold;">Apply Now</a>'
+                        "Link": f'<a href="{full_link}" target="_blank">Apply Now</a>'
                     })
-                
-                await asyncio.sleep(2) # Small delay
-                
+                await asyncio.sleep(2)
             except Exception as e:
-                print(f"Issue on page {current_page + 1}: {e}")
+                print(f"Error on page {current_page + 1}: {e}")
                 break
 
-        # --- SAVE & GENERATE DASHBOARD ---
         if all_jobs:
             new_df = pd.DataFrame(all_jobs)
             file_path = 'indeed_jobs.csv'
-            
             if os.path.exists(file_path):
                 old_df = pd.read_csv(file_path)
                 final_df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Title', 'Company'], keep='last')
@@ -76,44 +67,33 @@ async def scrape_indeed():
                 final_df = new_df
             
             final_df.to_csv(file_path, index=False)
-            print(f"Saved {len(all_jobs)} jobs.")
-            
             generate_html(final_df)
-        else:
-            print("No jobs found. Check your ZenRows balance or selectors.")
-
+            print("Job data saved and HTML generated.")
+        
         await browser.close()
 
 def generate_html(df):
-    # Show last 200 jobs, newest first
     df_display = df.tail(200).iloc[::-1]
-    html_table = df_display.to_html(classes='display nowrap', id='jobsTable', index=False, escape=False)
+    html_table = df_display.to_html(classes='display', id='jobsTable', index=False, escape=False)
     
     html_content = f"""
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <title>Indeed Job Tracker</title>
+        <title>Indeed Remote Jobs</title>
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
         <style>
-            body {{ font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; background: #f4f7f9; }}
-            .container {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }}
-            h1 {{ color: #2d3e50; text-align: center; }}
-            table.dataTable thead th {{ background-color: #2557a7; color: white; border: none; }}
-            tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            body {{ font-family: sans-serif; margin: 40px; background: #f8f9fa; }}
+            .container {{ background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+            h1 {{ color: #2557a7; text-align: center; }}
         </style>
     </head>
     <body>
-        <h1>Remote Developer Job Dashboard</h1>
+        <h1>Indeed Remote Software Jobs</h1>
         <div class="container">{html_table}</div>
         <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
         <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-        <script>
-            $(document).ready(function() {{
-                $('#jobsTable').DataTable({{ pageLength: 50, order: [] }});
-            }});
-        </script>
+        <script>$(document).ready(function() {{ $('#jobsTable').DataTable({{ pageLength: 50 }}); }});</script>
     </body>
     </html>
     """
