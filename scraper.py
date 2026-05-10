@@ -6,7 +6,7 @@ import pandas as pd
 from playwright.async_api import async_playwright
 
 async def scrape_indeed():
-    # CONFIG
+    # ZENROWS API KEY
     API_KEY = os.getenv('PROXY_API_KEY')
     MAX_PAGES = 3 
     all_jobs = []
@@ -26,12 +26,12 @@ async def scrape_indeed():
             
             if API_KEY:
                 encoded_url = urllib.parse.quote(base_url)
-                # ZenRows bypass flags
+                # ZenRows Bypass Flags
                 final_url = f"https://api.zenrows.com/v1/?api_key={API_KEY}&url={encoded_url}&js_render=true&premium_proxy=true"
             else:
                 final_url = base_url
 
-            print(f"Scraping Page {current_page + 1} via ZenRows...")
+            print(f"Scraping Page {current_page + 1}...")
             
             try:
                 await page.goto(final_url, timeout=90000)
@@ -47,14 +47,14 @@ async def scrape_indeed():
                     full_link = f"https://www.indeed.com{href}" if href.startswith('/') else href
 
                     all_jobs.append({
-                        "Date": datetime.date.today().strftime("%Y-%m-%d"),
-                        "Title": await title_el.inner_text() if title_el else "N/A",
+                        "Date Found": datetime.date.today().strftime("%Y-%m-%d"),
+                        "Job Title": await title_el.inner_text() if title_el else "N/A",
                         "Company": await company_el.inner_text() if company_el else "N/A",
                         "Link": f'<a href="{full_link}" target="_blank">Apply Now</a>'
                     })
                 await asyncio.sleep(2)
             except Exception as e:
-                print(f"Error on page {current_page + 1}: {e}")
+                print(f"Error: {e}")
                 break
 
         if all_jobs:
@@ -62,34 +62,38 @@ async def scrape_indeed():
             file_path = 'indeed_jobs.csv'
             if os.path.exists(file_path):
                 old_df = pd.read_csv(file_path)
-                final_df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Title', 'Company'], keep='last')
+                final_df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Job Title', 'Company'], keep='last')
             else:
                 final_df = new_df
             
             final_df.to_csv(file_path, index=False)
+            
+            # HTML generation function call
             generate_html(final_df)
-            print("Job data saved and HTML generated.")
+            print("Done!")
         
         await browser.close()
 
 def generate_html(df):
+    # Sorting and taking last 200
     df_display = df.tail(200).iloc[::-1]
-    html_table = df_display.to_html(classes='display', id='jobsTable', index=False, escape=False)
+    html_table = df_display.to_html(classes='display nowrap', id='jobsTable', index=False, escape=False)
     
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Indeed Remote Jobs</title>
+        <meta charset="UTF-8">
+        <title>Indeed Job Dashboard</title>
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
         <style>
-            body {{ font-family: sans-serif; margin: 40px; background: #f8f9fa; }}
-            .container {{ background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+            body {{ font-family: sans-serif; margin: 40px; background: #f0f2f5; }}
+            .container {{ background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
             h1 {{ color: #2557a7; text-align: center; }}
         </style>
     </head>
     <body>
-        <h1>Indeed Remote Software Jobs</h1>
+        <h1>Indeed Remote Software Jobs Tracker</h1>
         <div class="container">{html_table}</div>
         <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
         <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
