@@ -1,5 +1,6 @@
 # .github/workflows/scraper.yml
 
+```yaml
 name: Indeed Job Scraper
 
 on:
@@ -16,6 +17,8 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    timeout-minutes: 20
+
     steps:
 
       - name: Checkout Repository
@@ -30,7 +33,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pandas playwright
+          pip install -r requirements.txt
           playwright install --with-deps chromium
 
       - name: Run Scraper
@@ -38,11 +41,13 @@ jobs:
           PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }}
         run: python scraper.py
 
-      - name: Upload Debug Screenshots
+      - name: Upload Debug Files
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
-          path: debug_page_*.png
+          name: debug-files
+          path: |
+            debug_page_*.png
+            blocked_page_*.html
 
       - name: Commit and Push Changes
         run: |
@@ -54,4 +59,4 @@ jobs:
 
           git diff --staged --quiet || git commit -m "Auto update jobs"
 
-          git push
+          git push || echo "Nothing to push"
