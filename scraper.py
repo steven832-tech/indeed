@@ -6,7 +6,6 @@ import pandas as pd
 from playwright.async_api import async_playwright
 
 async def scrape_indeed():
-    # ZENROWS API KEY
     API_KEY = os.getenv('PROXY_API_KEY')
     MAX_PAGES = 3 
     all_jobs = []
@@ -21,12 +20,10 @@ async def scrape_indeed():
 
         for current_page in range(MAX_PAGES):
             start_val = current_page * 10
-            # Target URL: Remote Software Dev, US, Last 24h
             base_url = f"https://www.indeed.com/jobs?q=software+developer&l=United+States&sc=0kf%3Aattr%28DSQF7%29%3B&fromage=1&sort=date&start={start_val}"
             
             if API_KEY:
                 encoded_url = urllib.parse.quote(base_url)
-                # ZenRows Bypass Flags
                 final_url = f"https://api.zenrows.com/v1/?api_key={API_KEY}&url={encoded_url}&js_render=true&premium_proxy=true"
             else:
                 final_url = base_url
@@ -43,14 +40,17 @@ async def scrape_indeed():
                     company_el = await card.query_selector('[data-testid="company-name"]')
                     link_el = await card.query_selector('h2.jobTitle a')
                     
-                    href = await link_el.get_attribute('href') if link_el else ""
-                    full_link = f"https://www.indeed.com{href}" if href.startswith('/') else href
+                    if link_el:
+                        href = await link_el.get_attribute('href')
+                        full_link = f"https://www.indeed.com{href}" if href.startswith('/') else href
+                    else:
+                        full_link = "#"
 
                     all_jobs.append({
                         "Date Found": datetime.date.today().strftime("%Y-%m-%d"),
                         "Job Title": await title_el.inner_text() if title_el else "N/A",
                         "Company": await company_el.inner_text() if company_el else "N/A",
-                        "Link": f'<a href="{full_link}" target="_blank">Apply Now</a>'
+                        "Link": f'<a href="{full_link}" target="_blank" class="apply-btn">Apply Now</a>'
                     })
                 await asyncio.sleep(2)
             except Exception as e:
@@ -59,37 +59,34 @@ async def scrape_indeed():
 
         if all_jobs:
             new_df = pd.DataFrame(all_jobs)
-            file_path = 'indeed_jobs.csv'
-            if os.path.exists(file_path):
-                old_df = pd.read_csv(file_path)
-                final_df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Job Title', 'Company'], keep='last')
+            # Purana data load karein agar exist karta hai
+            if os.path.exists('indeed_jobs.csv'):
+                old_df = pd.read_csv('indeed_jobs.csv')
+                df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Job Title', 'Company'], keep='last')
             else:
-                final_df = new_df
+                df = new_df
             
-            final_df.to_csv(file_path, index=False)
-            
-            # HTML generation function call
-            generate_html(final_df)
-            print("Done!")
+            df.to_csv('indeed_jobs.csv', index=False)
+            generate_html(df)
         
         await browser.close()
 
 def generate_html(df):
-    # Sorting and taking last 200
     df_display = df.tail(200).iloc[::-1]
+    # 'escape=False' zaroori hai taake HTML links (<a> tags) kaam karein
     html_table = df_display.to_html(classes='display nowrap', id='jobsTable', index=False, escape=False)
     
     html_content = f"""
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <title>Indeed Job Dashboard</title>
+        <title>Indeed Tracker</title>
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
         <style>
-            body {{ font-family: sans-serif; margin: 40px; background: #f0f2f5; }}
-            .container {{ background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
-            h1 {{ color: #2557a7; text-align: center; }}
+            body {{ font-family: sans-serif; margin: 40px; background: #f4f7f6; }}
+            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            h1 {{ text-align: center; color: #2557a7; }}
+            .apply-btn {{ background: #2557a7; color: white !important; padding: 5px 15px; border-radius: 4px; text-decoration: none; font-weight: bold; }}
         </style>
     </head>
     <body>
@@ -97,7 +94,7 @@ def generate_html(df):
         <div class="container">{html_table}</div>
         <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
         <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-        <script>$(document).ready(function() {{ $('#jobsTable').DataTable({{ pageLength: 50 }}); }});</script>
+        <script>$(document).ready(function() {{ $('#jobsTable').DataTable({{ order: [[0, 'desc']] }}); }});</script>
     </body>
     </html>
     """
