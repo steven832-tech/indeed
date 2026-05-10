@@ -1,51 +1,57 @@
+# .github/workflows/scraper.yml
+
 name: Indeed Job Scraper
 
-# Schedule: Rozana subah 10 baje (UTC) aur manual chalane ka option
 on:
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+
   scrape-and-deploy:
+
     runs-on: ubuntu-latest
-    
+
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          # Is se history fetch hogi taake commit mein masla na aaye
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install Dependencies
         run: |
-          pip install playwright pandas
-          playwright install chromium
+          pip install pandas playwright
+          playwright install --with-deps chromium
 
       - name: Run Scraper
-        # 'env' section mein Secret ka hona zaroori hai
         env:
           PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }}
         run: python scraper.py
 
+      - name: Upload Debug Screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: debug_page_*.png
+
       - name: Commit and Push Changes
         run: |
+
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Force add files taake purani index.html lazmi overwrite ho
-          git add -f indeed_jobs.csv index.html
-          
-          # Sirf tab commit karein agar data mein koi tabdeeli ayi ho
-          git commit -m "Automated Data Update: $(date)" || echo "No changes to commit"
-          
-          # Main branch par push karein
-          git push origin main
+
+          git add indeed_jobs.csv index.html
+
+          git diff --staged --quiet || git commit -m "Auto update jobs"
+
+          git push
