@@ -50,7 +50,7 @@ async def scrape_indeed():
                         "Date Found": datetime.date.today().strftime("%Y-%m-%d"),
                         "Job Title": await title_el.inner_text() if title_el else "N/A",
                         "Company": await company_el.inner_text() if company_el else "N/A",
-                        "Link": f'<a href="{full_link}" target="_blank" class="apply-btn">Apply Now</a>'
+                        "Link": f'<a href="{full_link}" target="_blank" class="apply-link">Apply Now</a>'
                     })
                 await asyncio.sleep(2)
             except Exception as e:
@@ -59,7 +59,6 @@ async def scrape_indeed():
 
         if all_jobs:
             new_df = pd.DataFrame(all_jobs)
-            # Purana data load karein agar exist karta hai
             if os.path.exists('indeed_jobs.csv'):
                 old_df = pd.read_csv('indeed_jobs.csv')
                 df = pd.concat([old_df, new_df]).drop_duplicates(subset=['Job Title', 'Company'], keep='last')
@@ -68,25 +67,37 @@ async def scrape_indeed():
             
             df.to_csv('indeed_jobs.csv', index=False)
             generate_html(df)
+            print(f"Success! {len(all_jobs)} jobs processed.")
         
         await browser.close()
 
 def generate_html(df):
     df_display = df.tail(200).iloc[::-1]
-    # 'escape=False' zaroori hai taake HTML links (<a> tags) kaam karein
+    # CRITICAL: escape=False must be here
     html_table = df_display.to_html(classes='display nowrap', id='jobsTable', index=False, escape=False)
     
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+        <meta charset="UTF-8">
         <title>Indeed Tracker</title>
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
         <style>
-            body {{ font-family: sans-serif; margin: 40px; background: #f4f7f6; }}
-            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-            h1 {{ text-align: center; color: #2557a7; }}
-            .apply-btn {{ background: #2557a7; color: white !important; padding: 5px 15px; border-radius: 4px; text-decoration: none; font-weight: bold; }}
+            body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; background: #f4f7f6; }}
+            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
+            h1 {{ text-align: center; color: #2557a7; margin-bottom: 25px; }}
+            .apply-link {{ 
+                background: #2557a7; 
+                color: white !important; 
+                padding: 6px 15px; 
+                border-radius: 4px; 
+                text-decoration: none; 
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            .apply-link:hover {{ background: #1c3d7a; }}
+        </table>
         </style>
     </head>
     <body>
@@ -94,7 +105,14 @@ def generate_html(df):
         <div class="container">{html_table}</div>
         <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
         <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-        <script>$(document).ready(function() {{ $('#jobsTable').DataTable({{ order: [[0, 'desc']] }}); }});</script>
+        <script>
+            $(document).ready(function() {{
+                $('#jobsTable').DataTable({{
+                    "pageLength": 50,
+                    "order": [[ 0, "desc" ]]
+                }});
+            }});
+        </script>
     </body>
     </html>
     """
